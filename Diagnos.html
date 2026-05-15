@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DiagnosAI - Smart Symptom Checker</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        /* Custom animations */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+            100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        
+        .loading-ring {
+            animation: pulse-ring 2s infinite;
+        }
+
+        /* Smooth reveal for results */
+        .fade-in-up {
+            animation: fadeInUp 0.5s ease-out forwards;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        @keyframes fadeInUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-2 text-blue-600">
+                <i data-lucide="activity" class="w-8 h-8"></i>
+                <h1 class="text-2xl font-bold tracking-tight">Diagnos<span class="text-slate-800">AI</span></h1>
+            </div>
+            
+            <!-- Header Controls: History, Model, API Key -->
+            <div class="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                <button id="openHistoryBtn" class="flex items-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-lg border border-blue-200 text-sm font-medium transition-colors w-full sm:w-auto justify-center">
+                    <i data-lucide="clock-4" class="w-4 h-4"></i>
+                    History
+                </button>
+
+                <div id="headerControls" class="hidden flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                    <select id="modelSelect" class="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg outline-none p-2 w-full sm:w-auto focus:ring-2 focus:ring-blue-500">
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Default)</option>
+                        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                        <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash (Latest)</option>
+                        <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro</option>
+                    </select>
+
+                    <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200 w-full sm:w-auto focus-within:ring-2 focus-within:ring-blue-500">
+                        <i data-lucide="key" class="w-4 h-4 text-slate-400"></i>
+                        <input 
+                            type="password" 
+                            id="headerApiKeyInput" 
+                            placeholder="Update API Key..." 
+                            class="bg-transparent border-none outline-none text-sm w-full sm:w-40 text-slate-700 placeholder-slate-400"
+                        >
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-4xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
+        
+        <!-- Welcome Screen / API Key Setup -->
+        <div id="welcomeScreen" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-2xl mx-auto w-full text-center space-y-6">
+            <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="shield-check" class="w-8 h-8"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800">Welcome to DiagnosAI!</h2>
+            <p class="text-slate-600">To keep this app completely free and safe to host on platforms like GitHub, it requires you to use your own personal AI key. Your key stays saved securely on your own computer.</p>
+            
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-left space-y-3">
+                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="key" class="w-5 h-5 text-amber-500"></i> How to get your free key:
+                </h3>
+                <ol class="list-decimal list-inside text-sm text-slate-600 space-y-2">
+                    <li>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-600 hover:underline font-medium">Google AI Studio</a>.</li>
+                    <li>Sign in with your Google account.</li>
+                    <li>Click the blue <strong>"Create API key"</strong> button.</li>
+                    <li>Copy the key and paste it in the box below!</li>
+                </ol>
+            </div>
+
+            <div class="flex flex-col gap-3 pt-4">
+                <input 
+                    type="password" 
+                    id="welcomeApiKeyInput" 
+                    placeholder="Paste your Gemini API Key here (starts with AIza...)" 
+                    class="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-center font-mono"
+                >
+                <button id="startAppBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-6 rounded-xl shadow-sm transition-all flex justify-center items-center gap-2">
+                    <span>Save Key & Start</span>
+                    <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                </button>
+                <p id="welcomeError" class="text-red-500 text-sm hidden">Please enter a valid API key.</p>
+            </div>
+        </div>
+
+        <!-- App Screen (Hidden initially) -->
+        <div id="appScreen" class="hidden flex-col gap-6 w-full">
+
+        <!-- Important Disclaimer -->
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 items-start">
+            <i data-lucide="info" class="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5"></i>
+            <div class="text-sm text-amber-800 leading-relaxed">
+                <strong>Important Disclaimer:</strong> DiagnosAI is an AI-powered experimental tool. The information provided is for educational purposes only and is <strong>not a substitute for professional medical advice, diagnosis, or treatment.</strong> Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition.
+            </div>
+        </div>
+
+        <!-- Input Section -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
+            
+            <div>
+                <label class="block text-lg font-semibold text-slate-800 mb-1">
+                    1. Select Common Symptoms
+                </label>
+                <p class="text-slate-500 text-sm mb-3">
+                    Click all that apply to you right now.
+                </p>
+                <div id="commonSymptomsContainer" class="flex flex-wrap gap-2">
+                    <!-- Symptom chips will be generated here by JavaScript -->
+                </div>
+            </div>
+
+            <div>
+                <label for="symptoms" class="block text-lg font-semibold text-slate-800 mb-1">
+                    2. Add Specific Details
+                </label>
+                <p class="text-slate-500 text-sm mb-3">
+                    Describe severity, duration, or any other symptoms not listed above (e.g., "The headache has lasted for 2 days and gets worse in bright light").
+                </p>
+                <textarea 
+                    id="symptoms" 
+                    rows="3" 
+                    class="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-y text-base"
+                    placeholder="Type additional details here..."
+                ></textarea>
+            </div>
+            
+            <div class="flex justify-end pt-2 relative">
+                <button 
+                    id="analyzeBtn" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                    <i data-lucide="stethoscope" class="w-5 h-5"></i>
+                    <span>Analyze Symptoms</span>
+                </button>
+            </div>
+            <!-- Error indicator for empty input -->
+            <p id="validationError" class="text-red-500 text-sm text-right hidden mt-2">
+                Please enter your API Key at the top, and select at least one symptom.
+            </p>
+        </section>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="hidden flex-col items-center justify-center py-12 space-y-4">
+            <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center loading-ring">
+                <i data-lucide="brain-circuit" class="w-8 h-8 text-blue-600"></i>
+            </div>
+            <p class="text-slate-500 font-medium animate-pulse">DiagnosAI is analyzing your symptoms...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="hidden bg-red-50 border border-red-200 rounded-xl p-5 flex gap-3 items-start fade-in-up">
+            <i data-lucide="triangle-alert" class="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5"></i>
+            <div class="w-full">
+                <h3 class="font-bold text-red-800 text-lg">Analysis Failed</h3>
+                <p id="errorMessage" class="text-sm text-red-700 mt-1 font-medium">Something went wrong. Please try again.</p>
+                <p id="errorDetails" class="text-xs text-red-600 mt-2 font-mono bg-red-100 p-2 rounded hidden break-all"></p>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <section id="resultsSection" class="hidden space-y-6 fade-in-up">
+            
+            <!-- Controls above results -->
+            <div class="flex justify-between items-center bg-blue-50 border border-blue-100 p-4 rounded-xl">
+                <span class="text-sm font-medium text-blue-800 flex items-center gap-2">
+                    <i data-lucide="file-check" class="w-4 h-4"></i> Analysis Complete
+                </span>
+                <button id="newDiagnosisBtn" class="bg-white hover:bg-slate-50 text-blue-600 text-sm font-medium py-1.5 px-4 rounded-lg border border-blue-200 shadow-sm transition-all flex items-center gap-1.5">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i> New Diagnosis
+                </button>
+            </div>
+
+            <!-- Immediate Attention Warning -->
+            <div id="urgentWarning" class="hidden bg-red-600 text-white rounded-xl p-5 shadow-md flex gap-4 items-center">
+                <i data-lucide="siren" class="w-10 h-10 flex-shrink-0"></i>
+                <div>
+                    <h3 class="text-lg font-bold">Seek Medical Attention</h3>
+                    <p class="text-red-100 text-sm mt-1">Based on your description, you may be experiencing symptoms that require immediate evaluation by a healthcare professional.</p>
+                </div>
+            </div>
+
+            <!-- Conditions Container -->
+            <div>
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <i data-lucide="clipboard-list" class="w-6 h-6 text-blue-600"></i>
+                    Potential Conditions
+                </h2>
+                <div id="conditionsList" class="grid gap-4 md:grid-cols-2">
+                    <!-- Cards injected here via JS -->
+                </div>
+            </div>
+
+            <!-- General Advice -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="font-semibold text-lg flex items-center gap-2 mb-3">
+                    <i data-lucide="heart-pulse" class="w-5 h-5 text-teal-500"></i>
+                    General Advice
+                </h3>
+                <p id="generalAdviceText" class="text-slate-600 leading-relaxed"></p>
+                
+                <h4 class="font-medium text-slate-800 mt-5 mb-2 text-sm uppercase tracking-wide">Red Flags to Watch For:</h4>
+                <ul id="redFlagsList" class="space-y-2 text-slate-600 list-disc list-inside text-sm">
+                    <!-- List items injected via JS -->
+                </ul>
+            </div>
+
+            <!-- Follow-up Chat Section -->
+            <div class="bg-slate-50 rounded-xl shadow-inner border border-slate-200 p-6 mt-8">
+                <h3 class="font-semibold text-lg flex items-center gap-2 mb-4 text-slate-800">
+                    <i data-lucide="message-circle-question" class="w-5 h-5 text-blue-500"></i>
+                    Follow-up Questions
+                </h3>
+                
+                <div id="chatHistoryContainer" class="space-y-4 mb-4 max-h-80 overflow-y-auto p-2 flex flex-col">
+                    <!-- Chat messages injected here -->
+                </div>
+
+                <div class="flex gap-2">
+                    <input 
+                        type="text" 
+                        id="followUpInput" 
+                        placeholder="Ask a question about these results..." 
+                        class="flex-grow p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm bg-white"
+                    >
+                    <button 
+                        id="sendFollowUpBtn" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-5 rounded-xl transition-all disabled:opacity-70 flex items-center gap-2"
+                    >
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Send</span>
+                    </button>
+                </div>
+            </div>
+
+        </section>
+        
+        </div> <!-- Close App Screen -->
+
+    </main>
+
+    <!-- History Modal -->
+    <div id="historyModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+            <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="history" class="w-5 h-5 text-blue-600"></i>
+                    Saved Conversations
+                </h2>
+                <button id="closeHistoryBtn" class="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-grow bg-slate-50/50">
+                <div id="historyList" class="space-y-3">
+                    <!-- History items injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-800 text-slate-400 py-6 text-center text-sm mt-auto">
+        <p>© 2026 DiagnosAI. Powered by Google Gemini.</p>
+        <p class="mt-1 text-xs max-w-2xl mx-auto px-4">For demonstration purposes only. Always call emergency services (like 911) if you are experiencing a medical emergency.</p>
+    </footer>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // DOM Elements
+        const headerApiKeyInput = document.getElementById('headerApiKeyInput');
+        const welcomeApiKeyInput = document.getElementById('welcomeApiKeyInput');
+        const startAppBtn = document.getElementById('startAppBtn');
+        const welcomeScreen = document.getElementById('welcomeScreen');
+        const appScreen = document.getElementById('appScreen');
+        const headerControls = document.getElementById('headerControls');
+        const welcomeError = document.getElementById('welcomeError');
+        
+        const modelSelect = document.getElementById('modelSelect');
+        const symptomsInput = document.getElementById('symptoms');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const analyzeBtnText = analyzeBtn.querySelector('span');
+        const loadingState = document.getElementById('loadingState');
+        const errorState = document.getElementById('errorState');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorDetails = document.getElementById('errorDetails');
+        const resultsSection = document.getElementById('resultsSection');
+        const conditionsList = document.getElementById('conditionsList');
+        const generalAdviceText = document.getElementById('generalAdviceText');
+        const redFlagsList = document.getElementById('redFlagsList');
+        const urgentWarning = document.getElementById('urgentWarning');
+        const symptomsContainer = document.getElementById('commonSymptomsContainer');
+        const validationError = document.getElementById('validationError');
+        const inputSection = document.querySelector('section.bg-white.rounded-2xl.shadow-sm.p-6.space-y-6'); // Grab input section
+        const newDiagnosisBtn = document.getElementById('newDiagnosisBtn');
+        
+        // Chat DOM Elements
+        const followUpInput = document.getElementById('followUpInput');
+        const sendFollowUpBtn = document.getElementById('sendFollowUpBtn');
+        const chatHistoryContainer = document.getElementById('chatHistoryContainer');
+        let currentChatHistory = []; // Stores the conversation context
+        let currentSessionId = null; // Tracks currently active session
+
+        // History DOM Elements
+        const historyModal = document.getElementById('historyModal');
+        const openHistoryBtn = document.getElementById('openHistoryBtn');
+        const closeHistoryBtn = document.getElementById('closeHistoryBtn');
+        const historyList = document.getElementById('historyList');
+
+        // Safe storage wrapper to prevent crashes on strict browsers
+        const storage = {
+            get: function(key) {
+                try { return localStorage.getItem(key); } catch(e) { return null; }
+            },
+            set: function(key, value) {
+                try { localStorage.setItem(key, value); } catch(e) { console.warn("Storage disabled"); }
+            }
+        };
+
+        // Screen Management Logic
+        function showAppScreen() {
+            welcomeScreen.classList.add('hidden');
+            appScreen.classList.remove('hidden');
+            appScreen.classList.add('flex');
+            headerControls.classList.remove('hidden');
+            headerControls.classList.add('flex');
+        }
+
+        startAppBtn.addEventListener('click', () => {
+            const key = welcomeApiKeyInput.value.trim();
+            if (key) {
+                storage.set('gemini_api_key', key);
+                headerApiKeyInput.value = key;
+                welcomeError.classList.add('hidden');
+                showAppScreen();
+            } else {
+                welcomeError.classList.remove('hidden');
+            }
+        });
+
+        // Try to load API key and selected model from localStorage safely
+        const savedKey = storage.get('gemini_api_key');
+        if (savedKey) {
+            headerApiKeyInput.value = savedKey;
+            welcomeApiKeyInput.value = savedKey;
+            showAppScreen(); // Auto-skip welcome screen if key exists
+        }
+        
+        const savedModel = storage.get('gemini_model');
+        if (savedModel) modelSelect.value = savedModel;
+
+        // Sync header input changes back to storage
+        headerApiKeyInput.addEventListener('input', () => {
+            storage.set('gemini_api_key', headerApiKeyInput.value.trim());
+            validationError.classList.add('hidden');
+        });
+
+        // Common Symptoms List
+        const commonSymptomsList = [
+            "Fever", "Cough", "Headache", "Nausea", "Fatigue", 
+            "Sore Throat", "Shortness of breath", "Muscle aches",
+            "Chills", "Loss of taste/smell", "Runny nose", "Dizziness",
+            "Stomach pain", "Vomiting", "Diarrhea", "Chest pain"
+        ];
+        
+        const selectedSymptoms = new Set();
+
+        // Render Symptom Chips
+        commonSymptomsList.forEach(symp => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = symp;
+            btn.className = "px-4 py-2 rounded-full border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors focus:outline-none select-none";
+            
+            btn.addEventListener('click', () => {
+                if (selectedSymptoms.has(symp)) {
+                    selectedSymptoms.delete(symp);
+                    btn.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-800', 'hover:bg-blue-200');
+                    btn.classList.add('bg-white', 'border-slate-300', 'text-slate-700', 'hover:bg-slate-50');
+                } else {
+                    selectedSymptoms.add(symp);
+                    btn.classList.remove('bg-white', 'border-slate-300', 'text-slate-700', 'hover:bg-slate-50');
+                    btn.classList.add('bg-blue-100', 'border-blue-500', 'text-blue-800', 'hover:bg-blue-200');
+                }
+                validationError.classList.add('hidden');
+            });
+            symptomsContainer.appendChild(btn);
+        });
+
+        // Hide error message on typing
+        symptomsInput.addEventListener('input', () => {
+            if (symptomsInput.value.trim() !== '') validationError.classList.add('hidden');
+        });
+
+        // Helper to get color based on likelihood
+        function getLikelihoodBadge(likelihood) {
+            const l = likelihood.toLowerCase();
+            if (l.includes('high')) return 'bg-red-100 text-red-700 border-red-200';
+            if (l.includes('moderate') || l.includes('medium')) return 'bg-amber-100 text-amber-700 border-amber-200';
+            return 'bg-blue-100 text-blue-700 border-blue-200';
+        }
+
+        // --- Core UI Update Function ---
+        // Refactored to allow loading past sessions easily
+        function renderDiagnosisUI(data) {
+            if (data.immediate_medical_attention_needed) {
+                urgentWarning.classList.remove('hidden');
+            } else {
+                urgentWarning.classList.add('hidden');
+            }
+
+            conditionsList.innerHTML = '';
+            if (data.possible_conditions && data.possible_conditions.length > 0) {
+                data.possible_conditions.forEach(condition => {
+                    const badgeClass = getLikelihoodBadge(condition.likelihood);
+                    const card = document.createElement('div');
+                    card.className = "bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden";
+                    card.innerHTML = `
+                        <div class="absolute top-0 left-0 w-1 h-full ${badgeClass.split(' ')[0]}"></div>
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-bold text-slate-800">${condition.name}</h4>
+                            <span class="text-xs font-semibold px-2.5 py-0.5 rounded border ${badgeClass}">
+                                ${condition.likelihood} Match
+                            </span>
+                        </div>
+                        <p class="text-sm text-slate-600 mt-2">${condition.description}</p>
+                    `;
+                    conditionsList.appendChild(card);
+                });
+            } else {
+                conditionsList.innerHTML = `<p class="text-slate-500 col-span-2">Could not confidently determine potential conditions. Please consult a doctor.</p>`;
+            }
+
+            generalAdviceText.textContent = data.general_advice || "Please consult a healthcare professional for advice tailored to your situation.";
+            
+            redFlagsList.innerHTML = '';
+            if (data.red_flags_to_watch_for && data.red_flags_to_watch_for.length > 0) {
+                data.red_flags_to_watch_for.forEach(flag => {
+                    const li = document.createElement('li');
+                    li.textContent = flag;
+                    redFlagsList.appendChild(li);
+                });
+            } else {
+                redFlagsList.innerHTML = '<li>None specified, but always trust your instincts if you feel worse.</li>';
+            }
+        }
+
+        // --- History Management ---
+        function getSavedSessions() {
+            try {
+                return JSON.parse(storage.get('diagnosai_history') || '[]');
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveSessionState(diagnosisData, promptText) {
+            let sessions = getSavedSessions();
+            
+            if (!currentSessionId) {
+                currentSessionId = Date.now().toString();
+                sessions.unshift({ // Add to beginning
+                    id: currentSessionId,
+                    date: new Date().toLocaleString(),
+                    summary: promptText ? (promptText.substring(0, 80) + (promptText.length > 80 ? '...' : '')) : "Follow-up",
+                    diagnosis: diagnosisData || sessions.find(s => s.id === currentSessionId)?.diagnosis,
+                    chat: currentChatHistory
+                });
+            } else {
+                let sessionIndex = sessions.findIndex(s => s.id === currentSessionId);
+                if (sessionIndex > -1) {
+                    sessions[sessionIndex].chat = currentChatHistory;
+                }
+            }
+            
+            // Keep only the last 20 sessions to save local storage space
+            if (sessions.length > 20) sessions = sessions.slice(0, 20);
+            
+            storage.set('diagnosai_history', JSON.stringify(sessions));
+        }
+
+        function loadSession(id) {
+            const sessions = getSavedSessions();
+            const session = sessions.find(s => s.id === id);
+            
+            if (!session) return;
+
+            currentSessionId = id;
+            currentChatHistory = session.chat;
+
+            // Update UI with saved data
+            renderDiagnosisUI(session.diagnosis);
+
+            // Rebuild chat history UI
+            chatHistoryContainer.innerHTML = '';
+            // Skip the first two elements which are the hidden system prompt & initial diagnosis
+            // Start from index 2 if there's actual follow-up chat, else just show the intro message
+            addChatMessage("I've loaded your past report. Do you have any follow-up questions?", 'model');
+            
+            for (let i = 2; i < session.chat.length; i++) {
+                const msg = session.chat[i];
+                addChatMessage(msg.parts[0].text, msg.role);
+            }
+
+            // Switch views
+            inputSection.classList.add('hidden');
+            resultsSection.classList.remove('hidden');
+            historyModal.classList.add('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function renderHistoryModal() {
+            const sessions = getSavedSessions();
+            historyList.innerHTML = '';
+
+            if (sessions.length === 0) {
+                historyList.innerHTML = `<div class="text-center py-8 text-slate-500">
+                    <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
+                    <p>No saved conversations yet.</p>
+                </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            sessions.forEach(session => {
+                const item = document.createElement('div');
+                item.className = "bg-white border border-slate-200 p-4 rounded-xl shadow-sm hover:border-blue-300 hover:shadow transition-all cursor-pointer flex justify-between items-center group";
+                
+                const topCondition = session.diagnosis.possible_conditions?.[0]?.name || "Unknown Condition";
+                
+                item.innerHTML = `
+                    <div class="pr-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">${session.date}</span>
+                            <span class="text-sm font-bold text-slate-800">${topCondition}</span>
+                        </div>
+                        <p class="text-sm text-slate-600 line-clamp-1">${session.summary}</p>
+                    </div>
+                    <div class="bg-blue-50 text-blue-600 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </div>
+                `;
+                item.addEventListener('click', () => loadSession(session.id));
+                historyList.appendChild(item);
+            });
+            lucide.createIcons();
+        }
+
+        // History Modal Listeners
+        openHistoryBtn.addEventListener('click', () => {
+            renderHistoryModal();
+            historyModal.classList.remove('hidden');
+        });
+        
+        closeHistoryBtn.addEventListener('click', () => {
+            historyModal.classList.add('hidden');
+        });
+
+        // New Diagnosis Button
+        newDiagnosisBtn.addEventListener('click', () => {
+            currentSessionId = null;
+            currentChatHistory = [];
+            resultsSection.classList.add('hidden');
+            inputSection.classList.remove('hidden');
+            symptomsInput.value = '';
+            selectedSymptoms.clear();
+            
+            // Reset symptom chips UI
+            document.querySelectorAll('#commonSymptomsContainer button').forEach(btn => {
+                btn.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-800', 'hover:bg-blue-200');
+                btn.classList.add('bg-white', 'border-slate-300', 'text-slate-700', 'hover:bg-slate-50');
+            });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        analyzeBtn.addEventListener('click', async () => {
+            const customText = symptomsInput.value.trim();
+            const apiKey = headerApiKeyInput.value.trim() || storage.get('gemini_api_key');
+            const selectedModel = modelSelect.value;
+            
+            // Validate inputs
+            if (!apiKey) {
+                validationError.textContent = "Please enter your Gemini API Key at the top of the page.";
+                validationError.classList.remove('hidden');
+                headerApiKeyInput.focus();
+                return;
+            }
+
+            if (!customText && selectedSymptoms.size === 0) {
+                validationError.textContent = "Please select at least one symptom or type in some details.";
+                validationError.classList.remove('hidden');
+                return;
+            }
+
+            // Save the preferences
+            storage.set('gemini_api_key', apiKey);
+            storage.set('gemini_model', selectedModel);
+
+            // Construct the final prompt text
+            let finalPromptText = "";
+            if (selectedSymptoms.size > 0) {
+                finalPromptText += `Patient reports the following common symptoms: ${Array.from(selectedSymptoms).join(', ')}. `;
+            }
+            if (customText) {
+                finalPromptText += `Additional specific details from patient: ${customText}`;
+            }
+
+            // Start fresh session
+            currentSessionId = null;
+
+            // Update UI to loading
+            analyzeBtn.disabled = true;
+            analyzeBtnText.textContent = 'Analyzing...';
+            errorState.classList.add('hidden');
+            errorDetails.classList.add('hidden');
+            resultsSection.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+            loadingState.classList.add('flex');
+
+            try {
+                // Dynamically use the selected model in the URL
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+                
+                const payload = {
+                    contents: [{
+                        parts: [{ text: finalPromptText }]
+                    }],
+                    systemInstruction: {
+                        parts: [{ 
+                            text: `You are a highly advanced medical AI symptom checker. You analyze symptoms and suggest potential conditions, ALWAYS providing safe, conservative advice. Emphasize seeing a doctor. Output structured JSON ONLY based on the schema provided. Evaluate if immediate ER/urgent care is needed based on standard medical triage (e.g., chest pain, severe shortness of breath, sudden numbness = true).` 
+                        }]
+                    },
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                possible_conditions: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            name: { type: "STRING", description: "Name of the medical condition" },
+                                            likelihood: { type: "STRING", description: "Must be 'High', 'Moderate', or 'Low'" },
+                                            description: { type: "STRING", description: "Brief explanation of the condition and how it relates to the symptoms" }
+                                        }
+                                    }
+                                },
+                                general_advice: { type: "STRING", description: "General home care or next steps (e.g., rest, hydrate, see a doctor within 2 days)" },
+                                immediate_medical_attention_needed: { type: "BOOLEAN", description: "True if symptoms suggest a life-threatening or severe emergency" },
+                                red_flags_to_watch_for: { 
+                                    type: "ARRAY", 
+                                    items: { type: "STRING" },
+                                    description: "List of new/worsening symptoms that should prompt an immediate ER visit"
+                                }
+                            },
+                            required: ["possible_conditions", "general_advice", "immediate_medical_attention_needed", "red_flags_to_watch_for"]
+                        }
+                    }
+                };
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`API Error (${response.status}): ${errText}`);
+                }
+
+                const resultData = await response.json();
+                const resultText = resultData.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (!resultText) throw new Error("Received empty response from AI.");
+                
+                const data = JSON.parse(resultText);
+
+                // Populate UI
+                renderDiagnosisUI(data);
+
+                // Initialize chat history context for follow-up questions
+                currentChatHistory = [
+                    { role: "user", parts: [{ text: finalPromptText }] },
+                    { role: "model", parts: [{ text: resultText }] }
+                ];
+                
+                // Save session immediately
+                saveSessionState(data, finalPromptText);
+
+                chatHistoryContainer.innerHTML = ''; // Clear previous chat
+                addChatMessage("I've generated your report above. Do you have any follow-up questions about these conditions or advice?", 'model');
+
+                inputSection.classList.add('hidden');
+                resultsSection.classList.remove('hidden');
+                resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            } catch (err) {
+                console.error("Diagnosis Error:", err);
+                
+                // Friendly error message logic
+                if (err.message.includes('400')) {
+                    errorMessage.textContent = "Your API key is invalid, OR the selected model doesn't support structured output. Try changing the Model dropdown at the top.";
+                } else if (err.message.includes('403')) {
+                    errorMessage.textContent = "Your API key does not have permission, or the API is disabled for your project.";
+                } else if (err.message.includes('404')) {
+                    errorMessage.textContent = `The model "${selectedModel}" was not found. Google might have updated their model names. Try picking a different model from the dropdown at the top!`;
+                } else if (err.message.includes('429')) {
+                    errorMessage.textContent = "Too many requests! Please wait a moment and try again.";
+                } else {
+                    errorMessage.textContent = "An unexpected error occurred.";
+                }
+                
+                // Show the exact raw error
+                errorDetails.textContent = err.message;
+                errorDetails.classList.remove('hidden');
+                errorState.classList.remove('hidden');
+                
+            } finally {
+                loadingState.classList.add('hidden');
+                loadingState.classList.remove('flex');
+                analyzeBtn.disabled = false;
+                analyzeBtnText.textContent = 'Analyze Symptoms';
+            }
+        });
+
+        // --- Follow Up Chat Logic ---
+
+        // Helper function to render chat bubbles
+        function addChatMessage(text, sender, id = null) {
+            const div = document.createElement('div');
+            if (id) div.id = id;
+            div.className = `p-3 rounded-xl max-w-[85%] text-sm leading-relaxed ${
+                sender === 'user' 
+                    ? 'bg-blue-600 text-white ml-auto rounded-br-sm' 
+                    : sender === 'error'
+                    ? 'bg-red-100 text-red-700 mr-auto rounded-bl-sm border border-red-200'
+                    : 'bg-white border border-slate-200 text-slate-700 mr-auto rounded-bl-sm shadow-sm'
+            }`;
+            div.textContent = text;
+            chatHistoryContainer.appendChild(div);
+            chatHistoryContainer.scrollTop = chatHistoryContainer.scrollHeight;
+            
+            // Re-initialize any new lucide icons if we added them inside chat
+            lucide.createIcons();
+        }
+
+        sendFollowUpBtn.addEventListener('click', async () => {
+            const question = followUpInput.value.trim();
+            const apiKey = headerApiKeyInput.value.trim() || storage.get('gemini_api_key');
+            const selectedModel = modelSelect.value;
+
+            if (!question || !apiKey) return;
+
+            // 1. Add User Message to UI
+            addChatMessage(question, 'user');
+            followUpInput.value = '';
+            
+            // Disable input while loading
+            followUpInput.disabled = true;
+            sendFollowUpBtn.disabled = true;
+
+            // 2. Add temporary loading message to UI
+            const loadingId = 'loading-' + Date.now();
+            addChatMessage('Thinking...', 'model', loadingId);
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+                
+                // Construct payload with conversation history
+                const payload = {
+                    contents: [
+                        ...currentChatHistory,
+                        { role: "user", parts: [{ text: question }] }
+                    ],
+                    systemInstruction: {
+                        parts: [{ 
+                            text: `You are a highly advanced, empathetic medical AI symptom checker assisting a user. You have just provided a preliminary diagnosis. Answer the user's follow-up questions safely, conservatively, and concisely. Keep answers to 1-2 paragraphs. Always remind them to see a doctor if they ask for definitive medical advice or prescriptions. Do not provide specific dosages for prescription medications.` 
+                        }]
+                    }
+                    // No JSON schema forced here, so the model can chat naturally in plain text
+                };
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+
+                const resultData = await response.json();
+                const answerText = resultData.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (!answerText) throw new Error("Empty response");
+
+                // Remove loading bubble and add actual answer
+                document.getElementById(loadingId)?.remove();
+                addChatMessage(answerText, 'model');
+
+                // Update conversation history for the next potential question
+                currentChatHistory.push({ role: "user", parts: [{ text: question }] });
+                currentChatHistory.push({ role: "model", parts: [{ text: answerText }] });
+
+                // Auto-save chat update to localStorage
+                saveSessionState(null, null); // We don't need to pass diagnosis data here, it's already saved
+
+            } catch (err) {
+                console.error("Chat Error:", err);
+                document.getElementById(loadingId)?.remove();
+                addChatMessage("Sorry, I encountered an error trying to answer that. Please check your API key or try again.", 'error');
+            } finally {
+                followUpInput.disabled = false;
+                sendFollowUpBtn.disabled = false;
+                followUpInput.focus();
+            }
+        });
+
+        // Allow pressing "Enter" on keyboard to send message
+        followUpInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendFollowUpBtn.click();
+        });
+
+    </script>
+</body>
+</html>
